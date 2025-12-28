@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OVT Leave Manager 2026 - Hằng Nguyễn</title>
+    
+    <!-- PWA & Mobile Metadata -->
+    <meta name="theme-color" content="#0f172a">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="OVT Leave">
+    
+    <!-- Manifest nhúng trực tiếp (Data URI) -->
+    <link rel="manifest" href="data:application/json;base64,ewogICJnameIjogIkhhbmcgTmd1eWVuIExlYXZlIFRyYWNrZXIiLAogICJzaG9ydF9uYW1lIjogIkxlYXZlUHJvIiwKICAic3RhcnRfdXJsIjogIi4iLAogICJkaXNwbGF5IjogInN0YW5kYWxvbmUiLAogICJiYWNrZ3JvdW5kX2NvbG9yIjogIiNmOGZhZmMiLAogICJ0aGVtZV9jb2xvciI6ICIjMGYxNzJhIgp9">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- React & ReactDOM -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <!-- Babel for JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- SheetJS (XLSX) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- Firebase SDK Compat -->
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore-compat.js"></script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+        body { font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        @keyframes pulse-soft { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        .animate-pulse-soft { animation: pulse-soft 2s infinite; }
+        .bg-pattern { background-image: radial-gradient(#e2e8f0 0.5px, transparent 0.5px); background-size: 20px 20px; }
+    </style>
+</head>
+<body class="bg-slate-50 bg-pattern min-h-screen">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useMemo, useEffect, useCallback } = React;
+
+        // Firebase Setup & Rules
+        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'ovt-leave-manager-2026';
+        const initialToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        const Icon = ({ name, size = 18, className = "" }) => {
+            const icons = {
+                FileSpreadsheet: <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><path d="M8 13h2"/><path d="M8 17h2"/><path d="M14 13h2"/><path d="M14 17h2"/></svg>,
+                CloudUpload: <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.642"/><polyline points="16 12 12 8 8 12"/><line x1="12" y1="8" x2="12" y2="16"/></svg>,
+                Users: <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>,
+                Calendar: <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>,
+                Clock: <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>,
+                Trash2: <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>,
+                Cake: <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M20 21v-8a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8"/><path d="M2 21h20"/><path d="M7 8v3"/><path d="M12 8v3"/><path d="M17 8v3"/></svg>,
+                Settings: <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1-2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>,
+                Smartphone: <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+            };
+            return icons[name] || null;
+        };
+
+        const App = () => {
+            const [user, setUser] = useState(null);
+            const [activeTab, setActiveTab] = useState('tracker');
+            const [selectedEmployeeId, setSelectedEmployeeId] = useState(1);
+            const [saveStatus, setSaveStatus] = useState('idle');
+            const [isReady, setIsReady] = useState(false);
+            const [viewingMonth, setViewingMonth] = useState(new Date().getMonth());
+
+            // --- Customizable States ---
+            const [departments, setDepartments] = useState(['Giám đốc', 'Kinh doanh', 'Kế toán', 'Điều phối', 'Kho']);
+            const [leaveTypes, setLeaveTypes] = useState([
+                { id: 1, name: 'Nghỉ phép', multiplier: 1 },
+                { id: 2, name: 'Nghỉ ốm', multiplier: 0 },
+                { id: 3, name: 'Việc riêng', multiplier: 0 }
+            ]);
+            const [holidays, setHolidays] = useState([
+                { date: '2026-01-01', name: 'Tết Dương Lịch' },
+                { date: '2026-02-16', name: 'Tết Nguyên Đán' },
+                { date: '2026-02-17', name: 'Tết Nguyên Đán' },
+                { date: '2026-02-18', name: 'Tết Nguyên Đán' },
+                { date: '2026-04-30', name: 'Giải phóng MN' },
+                { date: '2026-05-01', name: 'Lao động' },
+                { date: '2026-09-02', name: 'Quốc khánh' }
+            ]);
+            const [employees, setEmployees] = useState([
+                { id: 1, name: 'Nguyễn Thị Hoàng Oanh', dept: 'Giám đốc', annualQuota: 12, carriedOver: 3, dob: '04/09/1973', phone: '0913924331', email: 'oanh.nguyen@onvista.vn' },
+                { id: 2, name: 'Nguyễn Thị Kim Hằng', dept: 'Kinh doanh', annualQuota: 12, carriedOver: 3, dob: '15/05/1984', phone: '0982841292', email: 'hang.nguyen@onvista.vn' },
+                { id: 3, name: 'Nguyễn Thị Ngọc Kiều', dept: 'Kế toán', annualQuota: 12, carriedOver: 3, dob: '15/10/1992', phone: '0988654944', email: 'kieu.nguyen@onvista.vn' },
+                { id: 4, name: 'Hoàng Thị Thu Thuỷ', dept: 'Kế toán', annualQuota: 12, carriedOver: 3, dob: '08/12/1990', phone: '0937522959', email: 'thuy.hoang@onvista.vn' },
+                { id: 5, name: 'Trần Trung Hiếu', dept: 'Điều phối', annualQuota: 12, carriedOver: 3, dob: '14/01/1995', phone: '0901234567', email: 'hieu.tran@onvista.vn' },
+                { id: 6, name: 'Phạm Thị Ngọc Hà', dept: 'Kinh doanh', annualQuota: 12, carriedOver: 3, dob: '22/03/1988', phone: '', email: 'ha.pham@onvista.vn' },
+                { id: 7, name: 'Trương Hồng Hà', dept: 'Kế toán', annualQuota: 12, carriedOver: 3, dob: '10/11/1985', phone: '', email: 'ha.truong@onvista.vn' },
+                { id: 8, name: 'Nguyễn Mạnh Cường', dept: 'Kho', annualQuota: 12, carriedOver: 3, dob: '05/06/1993', phone: '', email: 'cuong.nguyen@onvista.vn' },
+                { id: 9, name: 'Nguyễn Thanh Tùng', dept: 'Điều phối', annualQuota: 12, carriedOver: 3, dob: '12/08/1996', phone: '', email: 'tung.nguyen@onvista.vn' },
+                { id: 10, name: 'Lại Quý Quynh', dept: 'Kho', annualQuota: 12, carriedOver: 3, dob: '30/12/1989', phone: '', email: 'quynh.lai@onvista.vn' }
+            ]);
+            const [records, setRecords] = useState([]);
+
+            // --- FIREBASE LOGIC (RULE 1 & 3) ---
+            useEffect(() => {
+                if (!firebaseConfig.apiKey) { setIsReady(true); return; }
+                const app = !firebase.apps.length ? firebase.initializeApp(firebaseConfig) : firebase.app();
+                const auth = firebase.auth();
+                const db = firebase.firestore();
+
+                const startAuth = async () => {
+                    try {
+                        if (initialToken) { await auth.signInWithCustomToken(initialToken); }
+                        else { await auth.signInAnonymously(); }
+                    } catch (e) { console.error("Firebase Auth Fail", e); }
+                };
+                startAuth();
+
+                const unsubscribe = auth.onAuthStateChanged((u) => {
+                    setUser(u);
+                    if (u) {
+                        // RULE 1: Standard public path
+                        const docRef = db.collection('artifacts').doc(appId).collection('public').doc('data').collection('state').doc('all');
+                        const unsubSnap = docRef.onSnapshot((doc) => {
+                            if (doc.exists) {
+                                const data = doc.data();
+                                if (data.departments) setDepartments(data.departments);
+                                if (data.leaveTypes) setLeaveTypes(data.leaveTypes);
+                                if (data.holidays) setHolidays(data.holidays);
+                                if (data.employees) setEmployees(data.employees);
+                                if (data.records) setRecords(data.records);
+                            }
+                            setIsReady(true);
+                        }, (err) => { console.error("Firestore error", err); setIsReady(true); });
+                        return () => unsubSnap();
+                    } else { setIsReady(true); }
+                });
+                return () => unsubscribe();
+            }, []);
+
+            const handleCloudSave = async () => {
+                if (!user) { alert("⚠️ Chờ kết nối..."); return; }
+                setSaveStatus('saving');
+                const db = firebase.firestore();
+                const docRef = db.collection('artifacts').doc(appId).collection('public').doc('data').collection('state').doc('all');
+                try {
+                    await docRef.set({
+                        departments, leaveTypes, holidays, employees, records,
+                        lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    setSaveStatus('saved');
+                    setTimeout(() => setSaveStatus('idle'), 2000);
+                } catch (e) {
+                    console.error("Save failed", e);
+                    setSaveStatus('idle');
+                    alert("❌ Lỗi lưu dữ liệu.");
+                }
+            };
+
+            const calculateDays = useCallback((start, end, typeId, session) => {
+                if (!start || !end) return 0;
+                let s = new Date(start); let e = new Date(end);
+                if (s > e) return 0;
+                let count = 0; let cur = new Date(s);
+                const hDates = holidays.map(h => h.date);
+                const mult = leaveTypes.find(t => t.id === typeId)?.multiplier ?? 1;
+                while (cur <= e) {
+                    const dow = cur.getDay(); const ds = cur.toISOString().split('T')[0];
+                    if (dow !== 0 && !hDates.includes(ds)) count += (dow === 6 ? 0.5 : 1);
+                    cur.setDate(cur.getDate() + 1);
+                }
+                const base = (session === 'Sáng' || session === 'Chiều') ? count * 0.5 : count;
+                return base * mult;
+            }, [holidays, leaveTypes]);
+
+            const summary = useMemo(() => {
+                return employees.map(emp => {
+                    const used = records.filter(r => r.employeeId === emp.id).reduce((acc, r) => acc + calculateDays(r.start, r.end, r.typeId, r.session), 0);
+                    const total = (emp.annualQuota || 0) + (emp.carriedOver || 0);
+                    return { ...emp, used, remaining: total - used };
+                });
+            }, [employees, records, calculateDays]);
+
+            const selectedEmp = summary.find(s => s.id === selectedEmployeeId) || summary[0];
+
+            if (!isReady) {
+                return (
+                    <div className="h-screen w-full flex flex-col items-center justify-center bg-slate-900 text-white">
+                        <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+                        <p className="font-bold tracking-widest text-xs animate-pulse italic uppercase">OVT LEAVE IS BOOTING...</p>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="flex flex-col h-screen text-slate-700 bg-slate-50">
+                    {/* Top Bar */}
+                    <div className="bg-slate-900 text-white h-16 px-6 flex items-center shadow-2xl z-50 sticky top-0">
+                        <div className="flex items-center gap-3 border-r border-slate-700 pr-6 mr-6 flex-shrink-0">
+                            <div className="bg-emerald-500 p-2 rounded-xl shadow-lg shadow-emerald-500/20"><Icon name="FileSpreadsheet" size={22}/></div>
+                            <span className="font-black text-xl tracking-tighter">OVT <span className="text-emerald-400">PRO</span></span>
+                        </div>
+                        
+                        <div className="flex gap-1 overflow-x-auto no-scrollbar flex-1 mr-4">
+                            {[
+                                { id: 'tracker', label: 'NHẬT KÝ', icon: 'Clock' },
+                                { id: 'summary', label: 'BÁO CÁO', icon: 'FileSpreadsheet' },
+                                { id: 'attendance', label: 'LỊCH CÔNG', icon: 'Calendar' },
+                                { id: 'employees', label: 'NHÂN SỰ', icon: 'Users' },
+                                { id: 'settings', label: 'TÙY CHỈNH', icon: 'Settings' },
+                                { id: 'install', label: 'CÀI ĐẶT APP', icon: 'Smartphone' }
+                            ].map(t => (
+                                <button key={t.id} onClick={() => setActiveTab(t.id)} className={`px-4 py-2 rounded-xl text-[10px] font-black transition-all flex items-center gap-2 flex-shrink-0 ${activeTab === t.id ? 'bg-white/10 text-emerald-400 border-b-2 border-emerald-400' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}>
+                                    <Icon name={t.icon} size={14}/> {t.label}
+                                </button>
+                            ))}
+                        </div>
+
+                        <button onClick={handleCloudSave} disabled={saveStatus === 'saving'} className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black shadow-xl transition-all ${saveStatus === 'saving' ? 'bg-amber-500 animate-pulse' : saveStatus === 'saved' ? 'bg-emerald-500' : 'bg-indigo-600 hover:bg-indigo-700 active:scale-95'}`}>
+                            <Icon name="CloudUpload" size={14}/> {saveStatus === 'saving' ? 'ĐANG LƯU...' : saveStatus === 'saved' ? 'ĐÃ SAO LƯU' : 'LƯU CLOUD'}
+                        </button>
+                    </div>
+
+                    <main className="flex-1 overflow-auto p-6 md:p-8 custom-scrollbar">
+                        {activeTab === 'tracker' && (
+                            <div className="max-w-6xl mx-auto space-y-6 animate-in fade-in duration-500">
+                                <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-200 flex flex-wrap items-center justify-between gap-6">
+                                    <div className="flex items-center gap-6">
+                                        <div className="w-16 h-16 bg-slate-900 rounded-2xl flex items-center justify-center text-white font-black text-2xl shadow-xl">{selectedEmp?.name[0]}</div>
+                                        <div>
+                                            <select className="bg-transparent font-black text-3xl outline-none cursor-pointer text-slate-800" value={selectedEmployeeId} onChange={e => setSelectedEmployeeId(Number(e.target.value))}>
+                                                {employees.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+                                            </select>
+                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1 italic">{selectedEmp?.dept}</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex gap-12">
+                                        <div className="text-right"><p className="text-[10px] font-bold text-slate-400 uppercase">QUỸ PHÉP</p><p className="text-3xl font-black">{(selectedEmp?.annualQuota + selectedEmp?.carriedOver).toFixed(1)}</p></div>
+                                        <div className="text-right"><p className="text-[10px] font-bold text-indigo-400 uppercase tracking-tighter">ĐÃ DÙNG</p><p className="text-3xl font-black text-indigo-600">{selectedEmp?.used.toFixed(1)}</p></div>
+                                        <div className="text-right"><p className="text-[10px] font-bold text-emerald-400 uppercase tracking-tighter">CÒN LẠI</p><p className={`text-3xl font-black ${selectedEmp?.remaining < 0 ? 'text-rose-500' : 'text-emerald-500'}`}>{selectedEmp?.remaining.toFixed(1)}</p></div>
+                                    </div>
+                                </div>
+
+                                <div className="bg-white rounded-[2rem] shadow-sm border border-slate-200 overflow-hidden">
+                                    <table className="w-full text-sm">
+                                        <thead className="bg-slate-50 border-b border-slate-200 text-[10px] font-black uppercase text-slate-400 tracking-widest">
+                                            <tr>
+                                                <th className="py-5 px-8 text-center w-20">STT</th>
+                                                <th className="px-4 py-5 text-left">Từ ngày</th>
+                                                <th className="px-4 py-5 text-left">Đến ngày</th>
+                                                <th className="px-4 py-5 text-left">Buổi</th>
+                                                <th className="px-4 py-5 text-left">Loại nghỉ</th>
+                                                <th className="px-4 py-5 text-center">Trừ phép</th>
+                                                <th className="px-4 py-5 text-left">Ghi chú</th>
+                                                <th className="w-20"></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-100 font-medium">
+                                            {records.filter(r => r.employeeId === selectedEmployeeId).map((r, idx) => (
+                                                <tr key={r.id} className="hover:bg-slate-50/50 group transition-all">
+                                                    <td className="py-4 px-8 text-center text-slate-300 font-mono font-bold">{idx + 1}</td>
+                                                    <td className="px-2"><input type="date" value={r.start} onChange={e => setRecords(records.map(rec => rec.id === r.id ? {...rec, start: e.target.value} : rec))} className="bg-transparent p-2 w-full outline-none font-bold hover:bg-white rounded transition-colors"/></td>
+                                                    <td className="px-2"><input type="date" value={r.end} onChange={e => setRecords(records.map(rec => rec.id === r.id ? {...rec, end: e.target.value} : rec))} className="bg-transparent p-2 w-full outline-none font-bold hover:bg-white rounded transition-colors"/></td>
+                                                    <td className="px-2"><select value={r.session} onChange={e => setRecords(records.map(rec => rec.id === r.id ? {...rec, session: e.target.value} : rec))} className="bg-transparent p-2 w-full outline-none font-bold"><option>Cả ngày</option><option>Sáng</option><option>Chiều</option></select></td>
+                                                    <td className="px-2"><select value={r.typeId} onChange={e => setRecords(records.map(rec => rec.id === r.id ? {...rec, typeId: Number(e.target.value)} : rec))} className="bg-transparent p-2 w-full outline-none font-bold text-indigo-600">{leaveTypes.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}</select></td>
+                                                    <td className="px-4 py-4 text-center font-black text-lg">{calculateDays(r.start, r.end, r.typeId, r.session).toFixed(1)}</td>
+                                                    <td className="px-4 py-4"><input type="text" value={r.note} onChange={e => setRecords(records.map(rec => rec.id === r.id ? {...rec, note: e.target.value} : rec))} className="bg-transparent w-full outline-none italic text-slate-400" placeholder="Lý do..."/></td>
+                                                    <td className="px-4 py-4 text-center"><button onClick={() => setRecords(records.filter(rec => rec.id !== r.id))} className="text-slate-200 hover:text-rose-500 transition-all"><Icon name="Trash2" size={16}/></button></td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                    <button onClick={() => setRecords([...records, {id: Date.now(), employeeId: selectedEmployeeId, start: new Date().toISOString().split('T')[0], end: new Date().toISOString().split('T')[0], typeId: 1, session: 'Cả ngày', note: ''}])} className="w-full py-5 bg-slate-50 text-[10px] font-black uppercase text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all border-t border-slate-100 tracking-[0.2em]">+ THÊM LỊCH NGHỈ MỚI</button>
+                                </div>
+                            </div>
+                        )}
+
+                        {activeTab === 'summary' && (
+                            <div className="max-w-5xl mx-auto space-y-6 animate-in fade-in duration-500">
+                                <div className="flex items-center justify-between">
+                                    <h2 className="text-2xl font-black uppercase tracking-tight text-slate-800 italic">Báo cáo tổng hợp phép 2026</h2>
+                                    <button onClick={() => {
+                                        const ws = XLSX.utils.json_to_sheet(summary.map(s => ({ "Nhân viên": s.name, "Phòng": s.dept, "Quỹ phép": s.annualQuota + s.carriedOver, "Đã nghỉ": s.used, "Còn lại": s.remaining })));
+                                        const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Leave"); XLSX.writeFile(wb, "OVT_Phep_2026.xlsx");
+                                    }} className="bg-slate-900 text-white px-6 py-3 rounded-2xl text-[10px] font-black flex items-center gap-3 shadow-xl hover:-translate-y-1 transition-all"><Icon name="FileSpreadsheet" size={16}/> TẢI EXCEL</button>
+                                </div>
+                                <div className="bg-white rounded-[2rem] shadow-sm border border-slate-200 overflow-hidden">
+                                    <table className="w-full text-sm">
+                                        <thead>
+                                            <tr className="bg-slate-50 text-[10px] font-black uppercase text-slate-400 border-b border-slate-200 tracking-widest text-left">
+                                                <th className="py-5 px-10">Nhân viên</th>
+                                                <th className="px-6 py-5">Phòng ban</th>
+                                                <th className="px-6 py-5 text-center">Quỹ phép</th>
+                                                <th className="px-6 py-5 text-center">Đã nghỉ</th>
+                                                <th className="px-6 py-5 text-center">Còn lại</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-100">
+                                            {summary.map(s => (
+                                                <tr key={s.id} className="hover:bg-slate-50/50 transition-colors">
+                                                    <td className="py-5 px-10 font-black text-slate-800">{s.name}</td>
+                                                    <td className="px-6 py-5 font-bold text-slate-400 text-xs">{s.dept}</td>
+                                                    <td className="px-6 py-5 text-center font-mono font-bold">{(s.annualQuota + s.carriedOver).toFixed(1)}</td>
+                                                    <td className="px-6 py-5 text-center font-mono font-black text-indigo-600">{s.used.toFixed(1)}</td>
+                                                    <td className={`px-6 py-5 text-center font-mono font-black ${s.remaining < 0 ? 'text-rose-500' : 'text-emerald-600'}`}>{s.remaining.toFixed(1)}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        )}
+
+                        {activeTab === 'attendance' && (
+                            <div className="max-w-5xl mx-auto space-y-8 animate-in fade-in duration-500">
+                                <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 flex flex-wrap items-center justify-between gap-6 shadow-sm">
+                                    <div className="flex items-center gap-6">
+                                        <div className="bg-amber-100 p-5 rounded-2xl text-amber-600 shadow-inner"><Icon name="Calendar" size={32}/></div>
+                                        <div><h2 className="text-2xl font-black text-slate-900 tracking-tighter">Lịch Công Tác 2026</h2><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1 italic">Nghỉ CN & Lễ • T7 (0.5) • 🎂 Sinh Nhật</p></div>
+                                    </div>
+                                    <div className="flex gap-1 overflow-x-auto no-scrollbar pb-2 max-w-full">
+                                        {[...Array(12)].map((_, m) => (
+                                            <button key={m} onClick={() => setViewingMonth(m)} className={`w-11 h-11 rounded-xl text-xs font-black transition-all border-2 flex-shrink-0 ${viewingMonth === m ? 'bg-emerald-600 text-white border-emerald-600 shadow-lg' : 'bg-white border-slate-200 text-slate-400 hover:border-emerald-300 hover:text-emerald-600'}`}>{m + 1}</button>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-7 gap-4">
+                                    {['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'].map(d => <div key={d} className="py-2 text-[10px] font-black uppercase text-slate-400 text-center tracking-widest">{d}</div>)}
+                                    {[...Array(new Date(2026, viewingMonth, 1).getDay())].map((_, i) => <div key={i}></div>)}
+                                    {[...Array(new Date(2026, viewingMonth + 1, 0).getDate())].map((_, i) => {
+                                        const dNum = i + 1; const dateObj = new Date(2026, viewingMonth, dNum); const dow = dateObj.getDay();
+                                        const ds = dateObj.toISOString().split('T')[0]; const isH = holidays.find(h => h.date === ds);
+                                        const bDays = employees.filter(emp => emp.dob && parseInt(emp.dob.split('/')[0]) === dNum && parseInt(emp.dob.split('/')[1]) === (viewingMonth + 1));
+                                        let weight = dow === 0 || isH ? 0 : dow === 6 ? 0.5 : 1;
+                                        return (
+                                            <div key={i} className={`aspect-square rounded-2xl border p-3 flex flex-col justify-between transition-all relative group ${dow === 0 || isH ? 'bg-rose-50 border-rose-100' : dow === 6 ? 'bg-amber-50 border-amber-100' : 'bg-white border-slate-100'} hover:shadow-2xl hover:-translate-y-2`}>
+                                                <div className="flex justify-between items-start">
+                                                    <span className={`text-base font-black ${dow === 0 || isH ? 'text-rose-600' : 'text-slate-800'}`}>{dNum}</span>
+                                                    {bDays.length > 0 && <div className="text-amber-500 animate-bounce-subtle"><Icon name="Cake" size={18}/></div>}
+                                                </div>
+                                                <div className="flex flex-col items-end gap-1">
+                                                    {bDays.length > 0 && <div className="w-full text-[8px] font-black text-amber-600 truncate text-right italic uppercase tracking-tighter">{bDays.map(b => b.name.split(' ').pop()).join(', ')}</div>}
+                                                    <span className={`text-[9px] font-black px-2 py-0.5 rounded-lg shadow-sm ${weight === 1 ? 'bg-emerald-100 text-emerald-700' : weight === 0.5 ? 'bg-amber-100 text-amber-700' : 'bg-rose-100 text-rose-700'}`}>{weight.toFixed(1)}</span>
+                                                    {isH && <span className="text-[6px] font-bold text-rose-500 truncate w-full text-right uppercase">{isH.name}</span>}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+
+                        {activeTab === 'employees' && (
+                            <div className="max-w-[98%] mx-auto space-y-6 animate-in fade-in duration-500">
+                                <div className="flex items-center justify-between">
+                                    <h2 className="text-2xl font-black uppercase tracking-tight text-slate-800 italic">Hồ sơ nhân sự</h2>
+                                    <button onClick={() => setEmployees([...employees, { id: Date.now(), name: 'Nhân viên mới', dept: departments[0], annualQuota: 12, carriedOver: 0, dob: '', phone: '', email: '' }])} className="bg-emerald-600 text-white px-5 py-2.5 rounded-xl text-[10px] font-black shadow-lg hover:bg-emerald-700 transition-all">+ THÊM NHÂN VIÊN</button>
+                                </div>
+                                <div className="bg-white rounded-[2rem] shadow-sm border border-slate-200 overflow-hidden overflow-x-auto custom-scrollbar">
+                                    <table className="w-full min-w-[1200px] text-sm">
+                                        <thead>
+                                            <tr className="bg-slate-50 text-[10px] font-black uppercase text-slate-400 border-b border-slate-200 tracking-widest text-left">
+                                                <th className="py-5 px-6 w-16 text-center">STT</th>
+                                                <th className="px-4 py-5">Họ tên</th>
+                                                <th className="px-4 py-5 w-40">Phòng ban</th>
+                                                <th className="px-4 py-5 w-32">Ngày sinh</th>
+                                                <th className="px-4 py-5">Số điện thoại</th>
+                                                <th className="px-4 py-5">Email</th>
+                                                <th className="px-4 py-5 w-24 text-center">Phép năm</th>
+                                                <th className="px-4 py-5 w-24 text-center">Phép tồn</th>
+                                                <th className="w-16"></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-100">
+                                            {employees.map((emp, idx) => (
+                                                <tr key={emp.id} className="hover:bg-slate-50/50 transition-colors group">
+                                                    <td className="py-4 px-6 text-center font-mono text-slate-300 font-bold">{idx + 1}</td>
+                                                    <td className="px-2"><input className="bg-transparent p-2 w-full font-black text-slate-800 outline-none hover:bg-white rounded transition-all" value={emp.name} onChange={e => setEmployees(employees.map(ev => ev.id === emp.id ? {...ev, name: e.target.value} : ev))}/></td>
+                                                    <td className="px-2">
+                                                        <select className="bg-transparent p-2 w-full font-bold text-slate-500 outline-none" value={emp.dept} onChange={e => setEmployees(employees.map(ev => ev.id === emp.id ? {...ev, dept: e.target.value} : ev))}>
+                                                            {departments.map(d => <option key={d}>{d}</option>)}
+                                                        </select>
+                                                    </td>
+                                                    <td className="px-2"><input placeholder="DD/MM/YYYY" className="bg-transparent p-2 w-full italic text-indigo-500 outline-none" value={emp.dob} onChange={e => setEmployees(employees.map(ev => ev.id === emp.id ? {...ev, dob: e.target.value} : ev))}/></td>
+                                                    <td className="px-2"><input className="bg-transparent p-2 w-full font-mono text-xs outline-none" value={emp.phone} onChange={e => setEmployees(employees.map(ev => ev.id === emp.id ? {...ev, phone: e.target.value} : ev))}/></td>
+                                                    <td className="px-2"><input className="bg-transparent p-2 w-full outline-none text-slate-400 lowercase" value={emp.email} onChange={e => setEmployees(employees.map(ev => ev.id === emp.id ? {...ev, email: e.target.value} : ev))}/></td>
+                                                    <td className="px-2"><input type="number" step="0.5" className="bg-slate-50 w-full text-center rounded-lg p-2 font-black text-sm outline-none" value={emp.annualQuota} onChange={e => setEmployees(employees.map(ev => ev.id === emp.id ? {...ev, annualQuota: Number(e.target.value)} : ev))}/></td>
+                                                    <td className="px-2"><input type="number" step="0.5" className="bg-slate-50 w-full text-center rounded-lg p-2 font-black text-sm outline-none" value={emp.carriedOver} onChange={e => setEmployees(employees.map(ev => ev.id === emp.id ? {...ev, carriedOver: Number(e.target.value)} : ev))}/></td>
+                                                    <td className="px-4 py-4 text-center"><button onClick={() => setEmployees(employees.filter(ev => ev.id !== emp.id))} className="text-slate-200 hover:text-rose-500 transition-all"><Icon name="Trash2" size={14}/></button></td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        )}
+
+                        {activeTab === 'settings' && (
+                            <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8 animate-in slide-in-from-right-10 duration-500">
+                                <div className="space-y-4">
+                                    <h4 className="font-black text-xs uppercase tracking-[0.2em] text-slate-400">Phòng Ban Hệ Thống</h4>
+                                    <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-3">
+                                        {departments.map((d, idx) => (
+                                            <div key={idx} className="flex items-center gap-2 group">
+                                                <input className="flex-1 bg-slate-50 border-none rounded-xl p-3 font-bold text-sm outline-none focus:ring-2 focus:ring-emerald-400" value={d} onChange={e => { const nd = [...departments]; nd[idx] = e.target.value; setDepartments(nd); }}/>
+                                                <button onClick={() => setDepartments(departments.filter((_, i) => i !== idx))} className="text-slate-300 hover:text-rose-500 p-2"><Icon name="Trash2" size={14}/></button>
+                                            </div>
+                                        ))}
+                                        <button onClick={() => setDepartments([...departments, 'Phòng mới'])} className="w-full py-3 bg-emerald-50 text-emerald-600 rounded-2xl text-[10px] font-black border-2 border-dashed border-emerald-100 hover:bg-emerald-100">+ THÊM PHÒNG BAN</button>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-4">
+                                    <h4 className="font-black text-xs uppercase tracking-[0.2em] text-slate-400">Loại Nghỉ & Hệ Số</h4>
+                                    <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+                                        <table className="w-full text-sm">
+                                            <thead className="bg-slate-50 border-b text-[10px] font-black uppercase text-slate-400 tracking-widest">
+                                                <tr>
+                                                    <th className="px-4 py-4 text-left">Tên loại</th>
+                                                    <th className="px-4 py-4 text-center w-24">Hệ số trừ</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-slate-100">
+                                                {leaveTypes.map((t) => (
+                                                    <tr key={t.id}>
+                                                        <td className="px-4 py-3"><input className="w-full bg-transparent font-bold outline-none border-b border-transparent focus:border-indigo-500" value={t.name} onChange={e => setLeaveTypes(leaveTypes.map(v => v.id === t.id ? {...v, name: e.target.value} : v))}/></td>
+                                                        <td className="px-4 py-3"><input type="number" step="0.1" className="w-full bg-slate-50 text-center rounded-lg p-2 font-black outline-none" value={t.multiplier} onChange={e => setLeaveTypes(leaveTypes.map(v => v.id === t.id ? {...v, multiplier: Number(e.target.value)} : v))}/></td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    <p className="text-[9px] text-slate-400 italic px-2">* 1.0: Trừ phép. 0.0: Không trừ.</p>
+                                </div>
+
+                                <div className="space-y-4">
+                                    <h4 className="font-black text-xs uppercase tracking-[0.2em] text-slate-400">Ngày Lễ Năm 2026</h4>
+                                    <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-3 max-h-[500px] overflow-y-auto custom-scrollbar">
+                                        {holidays.map((h, idx) => (
+                                            <div key={idx} className="flex gap-2 p-3 bg-slate-50 rounded-2xl group transition-all hover:bg-white border border-transparent hover:border-slate-200">
+                                                <input type="date" value={h.date} onChange={e => { const nh = [...holidays]; nh[idx].date = e.target.value; setHolidays(nh); }} className="bg-transparent border-none text-xs font-black outline-none w-28"/>
+                                                <input value={h.name} onChange={e => { const nh = [...holidays]; nh[idx].name = e.target.value; setHolidays(nh); }} className="flex-1 bg-transparent border-none text-xs font-bold outline-none text-rose-500"/>
+                                                <button onClick={() => setHolidays(holidays.filter((_, i) => i !== idx))} className="text-slate-200 hover:text-rose-500"><Icon name="Trash2" size={12}/></button>
+                                            </div>
+                                        ))}
+                                        <button onClick={() => setHolidays([...holidays, { date: '2026-01-01', name: 'Lễ mới' }])} className="w-full py-3 bg-rose-50 text-rose-600 rounded-2xl text-[10px] font-black border-2 border-dashed border-rose-100 hover:bg-rose-100">+ THÊM NGÀY Lễ</button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {activeTab === 'install' && (
+                            <div className="max-w-4xl mx-auto py-10 animate-in slide-in-from-bottom-10 duration-700">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                                    <div className="bg-slate-900 text-white rounded-[3.5rem] p-12 shadow-2xl relative overflow-hidden flex flex-col justify-center text-center">
+                                        <div className="absolute -top-10 -right-10 w-40 h-40 bg-emerald-500/20 rounded-full blur-3xl"></div>
+                                        <div className="w-24 h-24 bg-emerald-500 mx-auto rounded-3xl flex items-center justify-center mb-8 shadow-2xl shadow-emerald-500/30"><Icon name="FileSpreadsheet" size={48}/></div>
+                                        <h3 className="text-3xl font-black mb-2 tracking-tighter">OVT LEAVE <span className="text-emerald-400">PRO</span></h3>
+                                        <p className="text-slate-400 text-xs font-bold uppercase tracking-[0.3em] mb-10 italic">Standalone Software v6.8</p>
+                                        <div className="space-y-5 font-bold text-base">
+                                            <p className="flex items-center justify-center gap-3 text-emerald-400"><Icon name="Users" size={18}/> {employees.length} Nhân sự chính thức</p>
+                                            <p className="text-slate-300">Quản lý chuyên sâu • Sao lưu Cloud 2026</p>
+                                        </div>
+                                    </div>
+                                    <div className="bg-white rounded-[3.5rem] p-12 shadow-xl border border-slate-200 flex flex-col justify-center">
+                                        <h4 className="text-2xl font-black text-slate-800 mb-8 tracking-tighter">Chuyển thành Phần mềm</h4>
+                                        <div className="space-y-8 text-sm">
+                                            <div className="flex gap-5">
+                                                <div className="w-10 h-10 rounded-2xl bg-slate-900 text-white flex-shrink-0 flex items-center justify-center font-black text-lg">1</div>
+                                                <div>
+                                                    <p className="font-black text-slate-800 text-base">Google Chrome</p>
+                                                    <p className="text-slate-500 mt-1 leading-relaxed italic">Menu (3 chấm) ➔ Lưu và chia sẻ ➔ <b>Tạo lối tắt...</b> ➔ Đặt tên ➔ Tích chọn <b>"Mở dưới dạng cửa sổ"</b> ➔ Tạo.</p>
+                                                </div>
+                                            </div>
+                                            <div className="flex gap-5">
+                                                <div className="w-10 h-10 rounded-2xl bg-slate-100 text-slate-400 flex-shrink-0 flex items-center justify-center font-black text-lg">2</div>
+                                                <div>
+                                                    <p className="font-black text-slate-800 text-base">Microsoft Edge</p>
+                                                    <p className="text-slate-500 mt-1 leading-relaxed italic">Menu (3 chấm) ➔ Ứng dụng ➔ <b>Cài đặt trang web này dưới dạng ứng dụng</b>.</p>
+                                                </div>
+                                            </div>
+                                            <div className="p-5 bg-amber-50 border border-amber-100 rounded-3xl">
+                                                <p className="text-[11px] font-bold text-amber-700 leading-relaxed italic uppercase tracking-tight">
+                                                    💡 Lưu ý: Sau khi thực hiện, ứng dụng sẽ có icon ngoài Desktop và chạy trong một cửa sổ riêng biệt như phần mềm thực thụ.
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </main>
+
+                    {/* Footer Status Bar */}
+                    <div className="bg-white border-t border-slate-200 h-12 px-8 flex items-center justify-between text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] shadow-inner">
+                        <div className="flex gap-8 items-center">
+                            <span className="flex items-center gap-2">
+                                <span className={`w-2.5 h-2.5 rounded-full ${user ? 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.8)] animate-pulse' : 'bg-amber-400 animate-pulse'}`}></span>
+                                {user ? 'HỆ THỐNG ĐÃ KẾT NỐI CLOUD' : 'ĐANG ĐỒNG BỘ DỮ LIỆU...'}
+                            </span>
+                            <span className="text-slate-200">|</span>
+                            <span>DATABASE ID: <span className="text-indigo-500">{appId}</span></span>
+                        </div>
+                        <div className="flex items-center gap-4">
+                            <span className="bg-slate-100 px-3 py-1 rounded-full text-slate-500 italic">v6.8 STABLE - ALL FEATURE CUSTOMIZABLE</span>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        window.addEventListener('load', () => {
+            const root = ReactDOM.createRoot(document.getElementById('root'));
+            root.render(<App />);
+        });
+    </script>
+</body>
+</html>
